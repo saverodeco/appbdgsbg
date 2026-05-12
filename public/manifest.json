@@ -1,6 +1,6 @@
 {
-  "name": "Paper Roll Warehouse",
-  "short_name": "Warehouse",
+  "name": "wms-appbdgsbg",
+  "short_name": "wms-app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",

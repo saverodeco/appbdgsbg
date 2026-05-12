@@ -26,8 +26,16 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const signup = async (email, password) => {
-    return await supabase.auth.signUp({ email, password });
+  const signup = async (email, password, display_name) => {
+    return await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: display_name,
+        },
+      },
+    });
   };
 
   const login = async (email, password) => {
@@ -39,9 +47,11 @@ export function AuthProvider({ children }) {
   };
 
   const passwordReset = async (email) => {
-    // Note: Supabase password reset requires a redirect URL.
-    // You can configure this in your Supabase project settings.
     return await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://appbdgsbg-26846956-157ae.firebaseapp.com/' });
+  };
+
+  const updateUser = async (data) => {
+    return await supabase.auth.updateUser(data);
   };
 
   const value = {
@@ -51,6 +61,7 @@ export function AuthProvider({ children }) {
     login,
     logout,
     passwordReset,
+    updateUser,
   };
 
   return (

@@ -13,8 +13,8 @@
   # Sets environment variables in the workspace
   env = {
     # Using secrets for Supabase credentials
-    NEXT_PUBLIC_SUPABASE_URL = "$SUPABASE_URL";
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = "$SUPABASE_ANON_KEY"; 
+    NEXT_PUBLIC_SUPABASE_URL = "https://vlsbavtjdukpekpistbd.supabase.co";
+    NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsc2JhdnRqZHVrcGVrcGlzdGJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1NzQ3MDYsImV4cCI6MjA3ODE1MDcwNn0.QkOs5rFdXafsZEMakTIjeALSiVAUnDK1gLqcvxmuQHU"; 
   };
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"

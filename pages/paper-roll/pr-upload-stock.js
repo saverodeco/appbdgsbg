@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../supabase/client'; // Import the Supabase client
+import { supabase } from '../../supabase/client'; // Import the Supabase client
 import Papa from 'papaparse';
 
 // Helper function to safely parse numbers
@@ -30,7 +30,7 @@ const parseDate = (value) => {
 };
 
 
-export default function UploadStock() {
+export default function PrUploadStock({ plant }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
@@ -48,6 +48,11 @@ export default function UploadStock() {
       return;
     }
 
+    if (!plant) {
+        setMessage('No plant selected. Please select a plant before uploading.');
+        return;
+    }
+
     setUploading(true);
     setMessage('Processing file for synchronization...');
     setErrorDetails([]);
@@ -61,33 +66,42 @@ export default function UploadStock() {
         let deleteCount = 0;
         const currentErrorDetails = [];
 
-        // 1. Get all roll IDs from the CSV file
-        const csvRollIds = new Set(results.data.map(row => row.roll_id ? String(row.roll_id).trim() : null).filter(id => id));
+        // 1. Get all roll IDs from the CSV file for the current plant
+        const csvRollIds = new Set(results.data.map(row => String(row.roll_id ?? '').trim()).filter(id => id));
 
-        // 2. Find and delete rolls not in the CSV
-        setMessage('Removing old records...');
-        const { data: dbRolls, error: fetchError } = await supabase.from('paper_rolls').select('roll_id');
+        // 2. Find and delete rolls for the current plant not in the CSV
+        setMessage('Removing old records for the selected plant...');
+        const { data: dbRolls, error: fetchError } = await supabase
+            .from('pr_stock')
+            .select('roll_id')
+            .eq('plant', plant);
+
         if (fetchError) {
-          setMessage(`Error fetching existing rolls: ${fetchError.message}`);
+          setMessage(`Error fetching existing rolls for plant ${plant}: ${fetchError.message}`);
           setUploading(false);
           return;
         }
 
         const rollsToDelete = dbRolls.filter(roll => !csvRollIds.has(roll.roll_id)).map(roll => roll.roll_id);
         if (rollsToDelete.length > 0) {
-          const { error: deleteError } = await supabase.from('paper_rolls').delete().in('roll_id', rollsToDelete);
+          const { error: deleteError } = await supabase
+            .from('pr_stock')
+            .delete()
+            .in('roll_id', rollsToDelete)
+            .eq('plant', plant);
+
           if (deleteError) {
-            currentErrorDetails.push(`Failed to delete old records: ${deleteError.message}`);
+            currentErrorDetails.push(`Failed to delete old records for plant ${plant}: ${deleteError.message}`);
           } else {
             deleteCount = rollsToDelete.length;
           }
         }
 
-        // 3. Process updates and additions
-        setMessage('Updating and adding new records...');
+        // 3. Process updates and additions for the current plant
+        setMessage('Updating and adding new records for the selected plant...');
         const upsertData = results.data.map((row, index) => {
             const csvRowNumber = index + 2;
-            const rollId = row.roll_id ? String(row.roll_id).trim() : null;
+            const rollId = String(row.roll_id ?? '').trim();
 
             if (!rollId) {
                 currentErrorDetails.push(`Row ${csvRowNumber}: Missing or empty roll_id.`);
@@ -102,6 +116,7 @@ export default function UploadStock() {
             
             return {
                 roll_id: rollId,
+                plant: plant,
                 weight: weight,
                 gsm: parseNumber(row.gsm),
                 width: parseNumber(row.width),
@@ -116,17 +131,17 @@ export default function UploadStock() {
         }).filter(Boolean); // Filter out null entries from validation errors
 
         if (upsertData.length > 0) {
-            const { error: upsertError } = await supabase.from('paper_rolls').upsert(upsertData, { onConflict: 'roll_id' });
+            const { error: upsertError } = await supabase.from('pr_stock').upsert(upsertData, { onConflict: 'roll_id,plant' });
 
             if (upsertError) {
-                currentErrorDetails.push(`Error synchronizing data: ${upsertError.message}`);
+                currentErrorDetails.push(`Error synchronizing data for plant ${plant}: ${upsertError.message}`);
             } else {
                 successCount = upsertData.length;
             }
         }
 
         const errorCount = currentErrorDetails.length;
-        let finalMessage = `Synchronization complete. ${successCount} rows processed, ${deleteCount} rolls deleted.`;
+        let finalMessage = `Synchronization complete for plant ${plant}. ${successCount} rows processed, ${deleteCount} rolls deleted.`;
         if (errorCount > 0) {
             finalMessage += ` ${errorCount} rows failed.`;
         }
@@ -146,8 +161,8 @@ export default function UploadStock() {
 
   return (
     <div>
-      <h1>Upload Stock</h1>
-      <p>Upload a CSV file to synchronize stock. This will add new rolls, update existing ones, and delete any rolls not present in the file.</p>
+      <h1>PR Upload Stock</h1>
+      <p>Upload a CSV file to synchronize stock for the selected plant. This will add new rolls, update existing ones, and delete any rolls not present in the file for the current plant.</p>
       <input type="file" accept=".csv" onChange={handleFileChange} disabled={uploading} />
       <button onClick={handleUpload} disabled={uploading || !file}>
         {uploading ? 'Processing...' : 'Upload and Synchronize'}

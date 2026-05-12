@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-import { formatDate } from '../../utils/dateFormatter';
+import { formatDate } from '../../../utils/dateFormatter';
 
 export default function RollDetails() {
   const router = useRouter();

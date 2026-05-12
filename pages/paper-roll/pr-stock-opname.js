@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { supabase } from '../supabase/client';
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabase/client';
 
 const StockOpname = () => {
   const [binLocation, setBinLocation] = useState('');
@@ -9,6 +10,19 @@ const StockOpname = () => {
   const [scannedRolls, setScannedRolls] = useState([]);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+            console.error('Error getting session:', error);
+            return;
+        }
+        setUser(session?.user ?? null);
+    };
+    fetchUser();
+  }, []);
 
   const handleRollScan = async () => {
     if (!rollId) {
@@ -19,40 +33,45 @@ const StockOpname = () => {
         setMessage('Please lock a bin location before scanning.');
         return;
     }
+    if (!user) {
+        setMessage('You must be logged in to scan.');
+        return;
+    }
 
     setIsSubmitting(true);
     setMessage('');
 
     try {
       const { data: existingRoll, error: fetchError } = await supabase
-        .from('paper_rolls')
-        .select('*')
+        .from('pr_stock')
+        .select('roll_id, kind, gsm, width')
         .eq('roll_id', rollId)
         .single();
 
-      // PGRST116 means no row was found, which is not an error in this case.
       if (fetchError && fetchError.code !== 'PGRST116') {
         throw fetchError;
       }
 
-      if (existingRoll) {
-        const { error: updateError } = await supabase
-          .from('paper_rolls')
-          .update({
-            opname_date: new Date().toISOString(),
-            opname_bin_location: binLocation,
-          })
-          .eq('id', existingRoll.id);
+      const { error: insertError } = await supabase
+        .from('pr_stock_opname_events')
+        .insert({
+          scanned_id: rollId,
+          bin_location: binLocation,
+          opname_at: new Date().toISOString(),
+          roll_id: existingRoll ? existingRoll.roll_id : null,
+          user_id: user.user_metadata?.display_name || user.email,
+        });
 
-        if (updateError) {
-          throw updateError;
-        }
-        
-        setScannedRolls(prev => [existingRoll, ...prev]);
-        setMessage(`Roll ID ${rollId} scanned and updated successfully.`);
+      if (insertError) {
+        throw insertError;
+      }
+
+      if (existingRoll) {
+        const rollForUI = { ...existingRoll, id: `db-${rollId}-${Date.now()}` };
+        setScannedRolls(prev => [rollForUI, ...prev]);
+        setMessage(`Roll ID ${rollId} scanned and recorded successfully.`);
       } else {
-        // If the roll is not in the master list, just add it to the local scanned list for tracking.
-        setMessage(`Roll ID ${rollId} not found in master data, but recorded in this session.`);
+        setMessage(`Roll ID ${rollId} not in master data, but recorded in this session.`);
         const newRoll = {
           id: `new-${rollId}-${Date.now()}`,
           roll_id: rollId,
@@ -126,28 +145,28 @@ const StockOpname = () => {
       </div>
       {message && <p>{message}</p>}
       <h2>Scanned Rolls in this Session</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table>
         <thead>
           <tr>
-            <th style={{ border: '1px solid black', padding: '8px' }}>Roll ID</th>
-            <th style={{ border: '1px solid black', padding: '8px' }}>Kind</th>
-            <th style={{ border: '1px solid black', padding: '8px' }}>GSM</th>
-            <th style={{ border: '1px solid black', padding: '8px' }}>Width</th>
+            <th>Roll ID</th>
+            <th>Kind</th>
+            <th>GSM</th>
+            <th>Width</th>
           </tr>
         </thead>
         <tbody>
           {scannedRolls.length > 0 ? (
             scannedRolls.map(roll => (
               <tr key={roll.id}>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{roll.roll_id}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{roll.kind}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{roll.gsm}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{roll.width}</td>
+                <td>{roll.roll_id}</td>
+                <td>{roll.kind}</td>
+                <td>{roll.gsm}</td>
+                <td>{roll.width}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>
+              <td colSpan="4">
                 No rolls scanned yet.
               </td>
             </tr>
