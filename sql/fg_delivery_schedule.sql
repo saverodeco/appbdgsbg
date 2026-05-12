@@ -19,6 +19,8 @@ CREATE TABLE public.fg_delivery_schedule (
   user_name text,
   delivery_status text,
   truck_no text,
+  schedule_number numeric,
+  truck_type text,
   history json,
   CONSTRAINT fg_delivery_schedule_pkey PRIMARY KEY (id)
 );

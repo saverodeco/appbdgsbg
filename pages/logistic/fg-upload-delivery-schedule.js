@@ -71,6 +71,8 @@ const UploadDeliverySchedule = ({ plant }) => {
             weight_pcs: row['Weight Pcs'],
             outstanding_qty: row['Outstanding Qty'],
             schedule_date: scheduleDate,
+            schedule_number: row['Schedule Number'],
+            truck_type: row['Truck Type'],
             plant: plant,
             user_name: user?.email,
             delivery_status: 'Scheduled',

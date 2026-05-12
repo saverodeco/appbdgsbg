@@ -75,6 +75,7 @@ const Layout = ({ children }) => {
         { href: "/logistic/fg-stock", label: "Goods Stock Data", permission: "fg-stock" },
         { href: "/logistic/fg-movement-history", label: "Movement History", permission: "fg-movement-history" },
         { href: "/logistic/fg-upload-delivery-schedule", label: "Upload Delivery Schedule", permission: "fg-upload-delivery-schedule" },
+        { href: "/logistic/fg-transporter", label: "Transporter", permission: "fg-transporter" },
       ]
     },
     "Account": {

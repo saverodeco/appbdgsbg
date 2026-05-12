@@ -21,7 +21,7 @@ const DeliveryScheduleData = ({ plant }) => {
 
     const { data, error: fetchError } = await supabase
       .from('fg_delivery_schedule')
-      .select('id, created_at, so_number, so_item, customer_name, print_design, weight_pcs, outstanding_qty, schedule_date, plant, delivery_quantity, user_name, delivery_status, truck_no')
+      .select('id, created_at, so_number, so_item, customer_name, print_design, weight_pcs, outstanding_qty, schedule_date, plant, delivery_quantity, user_name, delivery_status, truck_no, schedule_number, truck_type')
       .eq('plant', plant)
       .eq('schedule_date', selectedDate);
 
@@ -110,6 +110,8 @@ const DeliveryScheduleData = ({ plant }) => {
         <table>
           <thead>
             <tr>
+              <th onClick={() => handleSort('schedule_number')}>Schedule Number{getSortIndicator('schedule_number')}</th>
+              <th onClick={() => handleSort('truck_type')}>Truck Type{getSortIndicator('truck_type')}</th>
               <th onClick={() => handleSort('so_number')}>SO Number{getSortIndicator('so_number')}</th>
               <th onClick={() => handleSort('so_item')}>SO Item{getSortIndicator('so_item')}</th>
               <th onClick={() => handleSort('customer_name')}>Customer Name{getSortIndicator('customer_name')}</th>
@@ -127,6 +129,8 @@ const DeliveryScheduleData = ({ plant }) => {
           <tbody>
             {sortedData.map((item) => (
               <tr key={item.id}>
+                <td>{item.schedule_number}</td>
+                <td>{item.truck_type}</td>
                 <td>{item.so_number}</td>
                 <td>{item.so_item}</td>
                 <td>{item.customer_name}</td>

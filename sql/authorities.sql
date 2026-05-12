@@ -28,28 +28,31 @@ FOR ALL
 TO service_role
 WITH CHECK (true);
 
--- 4. Insert recommended default authorities
--- This uses ON CONFLICT DO NOTHING to avoid errors if the script is run multiple times.
+-- 5. Insert the initial set of permissions (authorities)
+-- This is just an example set. You can customize it to your needs.
 INSERT INTO public.authorities (name, description)
 VALUES
-  ('ac-authority-manager', 'Manage User Authorities'),
-  ('ac-edit-account', 'Edit User Account'),
-  ('fg-delivery-schedule', 'View FG Delivery Schedule'),
-  ('fg-loading', 'Loading Finished Goods'),
-  ('fg-loading-dock', 'View FG Loading Dock'),
-  ('fg-movement-history', 'View FG Movement History'),
-  ('fg-receive', 'Receive Finished Goods'),
-  ('fg-stock', 'View FG Stock'),
-  ('fg-upload-delivery-schedule', 'Upload FG Delivery Schedule'),
-  ('pr-dashboard', 'View Paper Roll Dashboard'),
-  ('pr-issue', 'Issue Paper Roll'),
-  ('pr-movement-history', 'View PR Movement History'),
-  ('pr-movement', 'Record Paper Roll Movement'),
-  ('pr-opname-report', 'View PR Stock Opname Report'),
-  ('pr-receive', 'Receive Paper Roll'),
-  ('pr-return', 'Return Paper Roll'),
-  ('pr-stock-opname', 'Perform PR Stock Opname'),
-  ('pr-stock', 'View Paper Roll Stock'),
-  ('pr-upload-stock', 'Upload Paper Roll Stock'),
-  ('pr-stock-pivot', 'Analyze Paper Roll Stock with Pivot Table')
+      ('ac-authority-manager', 'Manage user authorities'),
+      ('ac-edit-account', 'Allow users to edit their own account details'),
+      ('fg-delivery-schedule', 'Manage FG Delivery Schedules'),
+      ('fg-loading', 'Perform FG Loading'),
+      ('fg-loadingdock', 'Manage FG Loading Docks'),
+      ('fg-movement-history', 'View FG Movement History'),
+      ('fg-outstanding', 'View Outstanding FG Deliveries'),
+      ('fg-receive', 'Receive Finished Goods'),
+      ('fg-stock', 'View FG Stock'),
+      ('fg-upload-delivery-schedule', 'Upload FG Delivery Schedule'),
+      ('fg-transporter', 'Manage FG Transporters'),
+      ('pr-dashboard', 'View Paper Roll Dashboard'),
+      ('pr-issue', 'Issue Paper Roll'),
+      ('pr-movement-history', 'View PR Movement History'),
+      ('pr-movement', 'Record Paper Roll Movement'),
+      ('pr-opname-report', 'View PR Stock Opname Report'),
+      ('pr-receive', 'Receive Paper Roll'),
+      ('pr-return', 'Return Paper Roll'),
+      ('pr-stock-opname', 'Perform PR Stock Opname'),
+      ('pr-stock', 'View Paper Roll Stock'),
+      ('pr-upload-stock', 'Upload Paper Roll Stock'),
+      ('pr-stock-pivot', 'Analyze Paper Roll Stock with Pivot Table')
 ON CONFLICT (name) DO NOTHING;
+
