@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabase/client';
-import { QRCode } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const PrintLabelPage = () => {
     const router = useRouter();
@@ -204,7 +204,7 @@ const PrintLabelPage = () => {
                     </div>
                     <div className="qr-code-container">
                         <div className="qr-code">
-                            <QRCode value={roll.roll_id} size={110} />
+                            <QRCodeSVG value={roll.roll_id} size={110} />
                         </div>
                         <span className="qr-code-text">{roll.roll_id}</span>
                     </div>
