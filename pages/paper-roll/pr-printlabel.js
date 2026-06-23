@@ -57,32 +57,7 @@ const PrintLabelPage = () => {
     if (!roll) {
         return (
             <div className="label-container">
-                <style jsx>{`
-                    .label-container {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        padding: 20px;
-                        background-color: #f0f0f0;
-                    }
-                    .form-container {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        margin-top: 20px;
-                    }
-                    .input-field {
-                        padding: 10px;
-                        font-size: 1em;
-                        margin-bottom: 10px;
-                        width: 300px;
-                    }
-                    .submit-button {
-                        padding: 10px 20px;
-                        cursor: pointer;
-                        font-size: 1em;
-                    }
-                `}</style>
+                
                 <div className="form-container">
                     <h2>Print Paper Roll Label</h2>
                     <p>Please enter the Paper Roll ID to generate the label.</p>
@@ -105,90 +80,7 @@ const PrintLabelPage = () => {
 
     return (
         <div className="label-container">
-            <style jsx>{`
-                .label-container {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    padding: 20px;
-                    background-color: #f0f0f0;
-                }
-                .label {
-                    border: 2px solid black;
-                    padding: 15px;
-                    width: 400px;
-                    font-family: Arial, sans-serif;
-                    background-color: white;
-                }
-                .label-header {
-                    text-align: center;
-                    font-weight: bold;
-                    font-size: 1.2em;
-                    margin-bottom: 10px;
-                    border-bottom: 1px solid black;
-                    padding-bottom: 5px;
-                }
-                .label-content {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .label-details {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .label-details p {
-                    margin: 3px 0;
-                    font-size: 0.9em;
-                }
-                .label-details strong {
-                    display: inline-block;
-                    width: 80px;
-                }
-                .qr-code-container {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .qr-code {
-                    padding: 5px;
-                    border: 1px solid #ccc;
-                }
-                .qr-code-text {
-                    font-size: 0.8em;
-                    font-weight: bold;
-                    margin-top: 5px;
-                }
-                .print-button {
-                    margin-top: 20px;
-                    padding: 10px 20px;
-                    cursor: pointer;
-                    font-size: 1em;
-                }
-                @media print {
-                    .print-button, .label-container {
-                        background-color: white !important;
-                    }
-                    .print-button {
-                        display: none;
-                    }
-                    body {
-                        -webkit-print-color-adjust: exact;
-                         margin: 0;
-                         background-color: white;
-                    }
-                    .label-container {
-                        padding: 0;
-                        justify-content: flex-start;
-                        align-items: flex-start;
-                    }
-                    .label {
-                        border: none;
-                        width: 100%;
-                    }
-                }
-            `}</style>
+            
 
             <div className="label">
                 <div className="label-header">PAPER ROLL TAG</div>
@@ -200,7 +92,7 @@ const PrintLabelPage = () => {
                         <p><strong>Diameter:</strong> {roll.diameter} mm</p>
                         <p><strong>Weight:</strong> {roll.weight} kg</p>
                         <p><strong>Batch:</strong> {roll.batch}</p>
-                        <p><strong>Rcvd Date:</strong> {new Date(roll.goods_receive_date || roll.created_at).toLocaleDateString()}</p>
+                        <p><strong>Received Date:</strong> {new Date(roll.goods_receive_date || roll.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="qr-code-container">
                         <div className="qr-code">

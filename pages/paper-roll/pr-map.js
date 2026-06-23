@@ -107,21 +107,32 @@ export default function InventorySummary({ plant }) {
     let sortableItems = [...summary];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
-        const keys = sortConfig.key.split('.');
-        let aValue = a;
-        let bValue = b;
-        for (let key of keys) {
-            aValue = aValue[key];
-            bValue = bValue[key];
-        }
+        const primaryKey = sortConfig.key.split('.')[0];
+        const direction = sortConfig.direction === 'ascending' ? 1 : -1;
 
-        if (aValue < bValue) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (['kind', 'gsm', 'width'].includes(primaryKey)) {
+          // Multi-level sort for kind, gsm, width
+          if (a.kind < b.kind) return -1 * direction;
+          if (a.kind > b.kind) return 1 * direction;
+          if (a.gsm < b.gsm) return -1 * direction;
+          if (a.gsm > b.gsm) return 1 * direction;
+          if (a.width < b.width) return -1 * direction;
+          if (a.width > b.width) return 1 * direction;
+          return 0;
+        } else {
+          // Fallback to original logic for other columns
+          const keys = sortConfig.key.split('.');
+          let aValue = a;
+          let bValue = b;
+          for (let key of keys) {
+              aValue = aValue[key];
+              bValue = bValue[key];
+          }
+
+          if (aValue < bValue) return -1 * direction;
+          if (aValue > bValue) return 1 * direction;
+          return 0;
         }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
       });
     }
     return sortableItems;
