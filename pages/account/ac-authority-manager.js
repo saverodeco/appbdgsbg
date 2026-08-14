@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabase/client';
 import { useRouter } from 'next/router';
+import { supabase } from '../../supabase/client';
 
 export default function AuthorityManager() {
   const [users, setUsers] = useState([]);
@@ -11,16 +11,20 @@ export default function AuthorityManager() {
 
   async function fetchUsers() {
     setPageLoading(true);
+    setError(null);
     try {
-      const { data: usersData, error: usersError } = await supabase
-        .from('user_profiles')
-        .select('id, email');
-      
-      if (usersError) throw usersError;
-      setUsers(usersData || []);
+      const { data, error: fnError } = await supabase.functions.invoke(
+        'manage-user-authority',
+        { body: { action: 'list' } }
+      );
+
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+
+      setUsers(data.users || []);
     } catch (err) {
       setError(err.message);
-      console.error("Error fetching users:", err);
+      console.error('Error fetching users:', err);
     } finally {
       setPageLoading(false);
     }
@@ -55,6 +59,7 @@ export default function AuthorityManager() {
         <thead>
           <tr>
             <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Email</th>
+            <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Permissions</th>
             <th style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'left' }}>Actions</th>
           </tr>
         </thead>
@@ -63,6 +68,11 @@ export default function AuthorityManager() {
             <tr key={user.id}>
               <td style={{ border: '1px solid #ccc', padding: '8px' }}>{user.email}</td>
               <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                {(user.permissions || []).length > 0
+                  ? user.permissions.join(', ')
+                  : <em>Belum ada permission</em>}
+              </td>
+              <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                 <button onClick={() => router.push(`/account/authority-manager/${user.id}`)}>
                   Edit Permissions
                 </button>
@@ -70,7 +80,7 @@ export default function AuthorityManager() {
             </tr>
           )) : (
             <tr>
-              <td colSpan="2" style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>
+              <td colSpan="3" style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>
                 No users found.
               </td>
             </tr>

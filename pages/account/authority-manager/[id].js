@@ -9,6 +9,7 @@ export default function EditAuthority() {
   const [userPermissions, setUserPermissions] = useState([]);
   const [allPermissions, setAllPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState('');
 
@@ -17,8 +18,10 @@ export default function EditAuthority() {
 
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        // Fetch all available permissions from the authorities table
+        // The master permission list (authorities) is safe to read directly —
+        // its SELECT policy is open to all authenticated users, no RLS issue.
         const { data: authoritiesData, error: authoritiesError } = await supabase
           .from('authorities')
           .select('name, description');
@@ -26,24 +29,22 @@ export default function EditAuthority() {
         if (authoritiesError) throw authoritiesError;
         setAllPermissions(authoritiesData);
 
-        // Fetch user data
-        const { data: userData, error: userError } = await supabase
-          .from('user_profiles')
-          .select('id, email, permissions')
-          .eq('id', userId)
-          .single();
+        // Fetching another user's profile goes through the Edge Function —
+        // direct Supabase access is blocked by RLS (user_profiles SELECT is
+        // limited to auth.uid() = id).
+        const { data, error: fnError } = await supabase.functions.invoke(
+          'manage-user-authority',
+          { body: { action: 'get', userId } }
+        );
 
-        if (userError) throw userError;
-        setUser(userData);
-        
-        // Set the initial state of the permissions
-        if (userData?.permissions) {
-          setUserPermissions(userData.permissions);
-        }
+        if (fnError) throw fnError;
+        if (data?.error) throw new Error(data.error);
 
+        setUser(data.user);
+        setUserPermissions(data.user?.permissions || []);
       } catch (err) {
         setError(err.message);
-        console.error("Error fetching data:", err);
+        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
@@ -53,7 +54,7 @@ export default function EditAuthority() {
   }, [userId]);
 
   const handlePermissionChange = (permissionName) => {
-    setUserPermissions(prev => 
+    setUserPermissions(prev =>
       prev.includes(permissionName)
         ? prev.filter(p => p !== permissionName)
         : [...prev, permissionName]
@@ -63,21 +64,21 @@ export default function EditAuthority() {
   const handleSave = async () => {
     if (!userId) return;
     setNotification('');
+    setSaving(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke(
+        'manage-user-authority',
+        { body: { action: 'update', userId, permissions: userPermissions } }
+      );
 
-    const { data, error: updateError } = await supabase
-      .from('user_profiles')
-      .update({ permissions: userPermissions, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-      .select(); // IMPORTANT: Return the updated data
-    
-    if (updateError) {
-      setNotification(`Error: ${updateError.message}`);
-    } else if (!data || data.length === 0) {
-      // This is the crucial check for RLS issues
-      setNotification('Error: Update failed. This is likely a permission issue. Please check that your Row Level Security policies allow admins to update the user_profiles table.');
-    } else {
-      // On successful save, navigate back to the user list
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+
       router.push('/account/ac-authority-manager');
+    } catch (err) {
+      setNotification(`Error: ${err.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -89,7 +90,7 @@ export default function EditAuthority() {
     <div>
       <h2>Edit Authority for {user.email}</h2>
       {notification && <div className="alert alert-info">{notification}</div>}
-      
+
       <table className="table">
         <thead>
           <tr>
@@ -115,8 +116,12 @@ export default function EditAuthority() {
         </tbody>
       </table>
 
-      <button onClick={handleSave} className="btn btn-primary">Save Changes</button>
-      <button onClick={() => router.push('/account/ac-authority-manager')} className="btn btn-secondary">Cancel</button>
+      <button onClick={handleSave} className="btn btn-primary" disabled={saving}>
+        {saving ? 'Saving...' : 'Save Changes'}
+      </button>
+      <button onClick={() => router.push('/account/ac-authority-manager')} className="btn btn-secondary">
+        Cancel
+      </button>
     </div>
   );
 }

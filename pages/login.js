@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '../hooks/useAuth';
 
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,9 +38,9 @@ export default function Login() {
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <button type="submit">Login</button>
       </form>
-      <Link href="/forgot-password">
-        <a>Forgot Password?</a>
-      </Link>
+      <Link href="/pr-stock">
+ Forgot Password?
+</Link>
     </div>
   );
 }
