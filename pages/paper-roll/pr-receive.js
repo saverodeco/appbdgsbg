@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { supabase } from '../../supabase/client';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../supabase/client';
 
-// The `plant` prop can be a single code ("7025") or several codes joined
-// with ";" (e.g. "7025;7027" for PEP Bandung + PEP Subang). Rows in this
-// table only ever have ONE plant code, so filtering must use .in(), not
-// .eq() with the raw combined string — otherwise nothing will ever match.
-const parsePlantCodes = (plant) =>
-  (plant || '')
-    .split(';')
-    .map((p) => p.trim())
-    .filter(Boolean);
+// Auth is still Supabase Auth — data now goes through pages/api/, but every
+// call still needs the user's Supabase session token so the API route can
+// verify who's calling.
+const authHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
+};
 
 // ============================================================================
 // Goods Receipt (ADRCV) bulk import — field order taken from the actual
-// ADRCV mapping (not ADMOV — this transaction has its own field set:
-// weight_rcv/length_dlv instead of weight/length, date_sent/date_rvd
-// instead of date_moved, plus quality fields like humidity/porosity).
+// ADRCV mapping (different from ADMOV: weight_rcv/length_dlv instead of
+// weight/length, date_sent/date_rvd instead of date_moved, plus quality
+// fields like humidity/porosity).
 // ============================================================================
 const ADRCV_FIELDS = [
   'dummy', 'system', 'transaction', 'tran_result', 'tran_err_msg', 'tran_ack',
@@ -47,7 +47,7 @@ const parseMoveDateTime = (dateStr, timeStr) => {
 
 // Parses raw .txt content into pr_stock-ready rows, skipping "#" comment
 // lines (the "# Date/time :" / "# Status :" header) and any non-ADRCV lines.
-const parseRvrcvText = (text) => {
+const parseAdrcvText = (text) => {
   const rows = [];
   const skipped = [];
 
@@ -67,18 +67,12 @@ const parseRvrcvText = (text) => {
     }
 
     const rollId = fields.uniq_roll_id || fields.sup_roll_id;
-    // plant_code is sometimes blank in real ADRCV samples — fall back to
-    // plant_num if needed, but plant_code (e.g. "7025") is what matches
-    // this app's convention, so prefer it when present.
     const plantCode = fields.plant_code || fields.plant_num;
     if (!rollId || !plantCode) {
       skipped.push({ line: idx + 1, reason: 'roll_id atau plant kosong' });
       return;
     }
 
-    // Prefer the actual arrival date/time (date_rvd/time_rvd) for
-    // goods_receive_date; fall back to date_sent, then the transaction
-    // timestamp itself if the roll hasn't been marked "received" yet.
     const goodsReceiveDate =
       parseMoveDateTime(fields.date_rvd, fields.time_rvd) ||
       parseMoveDateTime(fields.date_sent, fields.time_sent) ||
@@ -95,7 +89,6 @@ const parseRvrcvText = (text) => {
       bin_location: fields.location || fields.store || null,
       goods_receive_date: goodsReceiveDate,
       batch: 'AVAILABLE',
-      // gsm isn't present in the ADRCV field set — left unset here.
     });
   });
 
@@ -136,110 +129,56 @@ const PRReceive = ({ plant }) => {
     }
 
     try {
-      // Check if the roll already exists
-      const { data: existingRoll, error: fetchError } = await supabase
-        .from('pr_stock')
-        .select('roll_id')
-        .eq('roll_id', rollId)
-        .in('plant', parsePlantCodes(plant))
-        .single();
-
-      if (existingRoll) {
-        throw new Error(`Roll ID ${rollId} already exists in plant ${plant}.`);
-      }
-
-      const receiveDate = new Date().toISOString();
-
-      // Insert into pr_stock
-      const { data: stockData, error: stockInsertError } = await supabase
-        .from('pr_stock')
-        .insert({
-          roll_id: rollId,
-          plant: plant,
-          bin_location: location,
-          weight: weight,
-          diameter: diameter,
-          length: length,
-          goods_receive_date: receiveDate,
-          user_id: "developer",
-        })
-        .select()
-        .single();
-
-      if (stockInsertError) {
-        throw stockInsertError;
-      }
-
-      // Insert into pr_stock_movements
-      const { data: movementData, error: movementError } = await supabase
-        .from('pr_stock_movements')
-        .insert({
-          roll_id: rollId,
-          plant: plant,
-          movement_type: '101', // Goods Receipt
-          initial_loc: 'RECEIVE',
-          destination_loc: location,
-          weight: weight,
-          diameter: diameter,
-          length: length,
-          user_id: "developer",
-        })
-        .select()
-        .single();
-
-      if (movementError) {
-        throw movementError;
-      }
+      const res = await fetch('/api/pr-stock/receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        body: JSON.stringify({ rollId, plant, location, weight, diameter, length }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
       const newReceive = {
-        stock_id: stockData.id,
-        movement_id: movementData.id,
         roll_id: rollId,
-        location: location,
-        weight: weight,
-        diameter: diameter,
-        length: length,
+        plant,
+        movement_id: data.movementId,
+        location,
+        weight,
+        diameter,
+        length,
       };
 
-      setSessionReceives(prevReceives => [newReceive, ...prevReceives]);
-
+      setSessionReceives((prev) => [newReceive, ...prev]);
       setMessage('Roll received successfully!');
       setRollId('');
       setLocation('');
       setWeight('');
       setDiameter('');
       setLength('');
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   const handleCancelReceive = async (receive) => {
     try {
-      // Delete from pr_stock
-      const { error: stockDeleteError } = await supabase
-        .from('pr_stock')
-        .delete()
-        .eq('id', receive.stock_id);
+      const res = await fetch('/api/pr-stock/cancel-receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        body: JSON.stringify({
+          rollId: receive.roll_id,
+          plant: receive.plant,
+          movementId: receive.movement_id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
-      if (stockDeleteError) {
-        throw stockDeleteError;
-      }
-
-      // Delete from pr_stock_movements
-      const { error: movementDeleteError } = await supabase
-        .from('pr_stock_movements')
-        .delete()
-        .eq('id', receive.movement_id);
-
-      if (movementDeleteError) {
-        throw movementDeleteError;
-      }
-
-      setSessionReceives(prevReceives => prevReceives.filter(r => r.stock_id !== receive.stock_id));
+      setSessionReceives((prev) =>
+        prev.filter((r) => !(r.roll_id === receive.roll_id && r.plant === receive.plant))
+      );
       setMessage('Receive cancelled.');
-    } catch (error) {
-      setError(`Error cancelling receive: ${error.message}`);
+    } catch (err) {
+      setError(`Error cancelling receive: ${err.message}`);
     }
   };
 
@@ -256,7 +195,7 @@ const PRReceive = ({ plant }) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const { rows, skipped } = parseRvrcvText(text);
+      const { rows, skipped } = parseAdrcvText(text);
       setGrParsedRows(rows);
       setGrSkipped(skipped);
       if (rows.length === 0) {
@@ -276,40 +215,15 @@ const PRReceive = ({ plant }) => {
     setGrError('');
 
     try {
-      // 1. Upsert into pr_stock — re-running the same file won't crash on
-      //    duplicates, it just refreshes those rows instead.
-      const { data: upserted, error: upsertError } = await supabase
-        .from('pr_stock')
-        .upsert(grParsedRows, { onConflict: 'roll_id,plant' })
-        .select();
+      const res = await fetch('/api/pr-stock/gr-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        body: JSON.stringify({ rows: grParsedRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
-      if (upsertError) throw upsertError;
-
-      // 2. Log a matching '101' (Goods Receipt) movement per row, same as
-      //    the manual receive flow above.
-      const movementRows = grParsedRows.map((row) => ({
-        roll_id: row.roll_id,
-        plant: row.plant,
-        movement_type: '101',
-        initial_loc: 'RECEIVE',
-        destination_loc: row.bin_location,
-        weight: row.weight,
-        length: row.length,
-        diameter: row.diameter,
-        user_id: user?.user_metadata?.display_name || user?.email || 'developer',
-      }));
-
-      const { error: movementError } = await supabase
-        .from('pr_stock_movements')
-        .insert(movementRows);
-
-      if (movementError) {
-        // Stock rows are already in — surface this clearly rather than
-        // silently losing the movement history.
-        throw new Error(`Roll tersimpan ke pr_stock, tapi gagal mencatat movement: ${movementError.message}`);
-      }
-
-      setGrMessage(`${upserted?.length ?? grParsedRows.length} roll berhasil di-import ke pr_stock.`);
+      setGrMessage(`${data.imported} roll berhasil di-import ke pr_stock.`);
       setGrParsedRows([]);
       setGrSkipped([]);
       setGrFileName('');
@@ -322,8 +236,8 @@ const PRReceive = ({ plant }) => {
 
   return (
     <div>
-      <h2>Paper Roll Receive</h2>
-      {/* {message && <p className="message-success">{message}</p>}
+      {/* <h2>Paper Roll Receive</h2>
+      {message && <p className="message-success">{message}</p>}
       {error && <p className="message-error">{error}</p>}
 
       <form onSubmit={handleReceive} className="form-grid">
@@ -364,8 +278,8 @@ const PRReceive = ({ plant }) => {
         </thead>
         <tbody>
           {sessionReceives.length > 0 ? (
-            sessionReceives.map(rec => (
-              <tr key={rec.stock_id}>
+            sessionReceives.map((rec) => (
+              <tr key={`${rec.roll_id}-${rec.plant}`}>
                 <td>{rec.roll_id}</td>
                 <td>{rec.location}</td>
                 <td>{rec.weight}</td>
