@@ -1,73 +1,45 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../supabase/client';
 
 const AuthContext = createContext();
-const API_BASE = '/api/auth'; // sesuaikan dengan URL backend Node.js kamu
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getSession = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch(`${API_BASE}/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        } else {
-          localStorage.removeItem('token');
-        }
-      } catch (err) {
-        console.error(err);
-      }
+    // Load whatever session already exists (e.g. page refresh).
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setLoading(false);
-    };
+    });
 
-    getSession();
+    // Keep in sync with login/logout/token refresh happening anywhere else
+    // in the app.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email, password) => {
-    try {
-      const res = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) return { error: { message: data.message || 'Login gagal' } };
-      localStorage.setItem('token', data.token);
-      setUser(data.user);
-      return { error: null };
-    } catch (err) {
-      return { error: { message: 'Tidak bisa terhubung ke server' } };
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+    setUser(data.user);
+    return { error: null };
   };
 
   const logout = async () => {
-    localStorage.removeItem('token');
+    await supabase.auth.signOut();
     setUser(null);
   };
 
   const passwordReset = async (email) => {
-    try {
-      const res = await fetch(`${API_BASE}/password-reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      if (!res.ok) return { error: { message: data.message } };
-      return { error: null };
-    } catch (err) {
-      return { error: { message: 'Tidak bisa terhubung ke server' } };
-    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return { error };
   };
 
   const value = { user, loading, login, logout, passwordReset };

@@ -1,7 +1,10 @@
 {
+  "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/_app": "pages/_app.js",
-  "/": "pages/index.js",
-  "/paper-roll/pr-issue": "pages/paper-roll/pr-issue.js"
+  "/paper-roll/pr-receive": "pages/paper-roll/pr-receive.js",
+  "/paper-roll/pr-issue": "pages/paper-roll/pr-issue.js",
+  "/paper-roll/pr-stock": "pages/paper-roll/pr-stock.js",
+  "/api/pr-stock/production-rolls": "pages/api/pr-stock/production-rolls.js",
+  "/api/pr-stock/consume": "pages/api/pr-stock/consume.js"
 }
